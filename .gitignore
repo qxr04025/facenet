@@ -92,3 +92,13 @@ ENV/
 
 # PyCharm project setting
 .idea
+
+
+# dataset
+data/CASIA-Webface
+data/lfw
+
+# models
+data/imagenet_models_tf
+logs/
+models/

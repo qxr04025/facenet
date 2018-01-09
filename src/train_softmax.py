@@ -42,7 +42,10 @@ import tensorflow.contrib.slim as slim
 from tensorflow.python.ops import data_flow_ops
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
+from tensorflow.python import pywrap_tensorflow
 
+from IPython import embed
+ 
 def main(args):
   
     network = importlib.import_module(args.model_def)
@@ -127,7 +130,10 @@ def main(args):
                 if args.random_rotate:
                     image = tf.py_func(facenet.random_rotate_image, [image], tf.uint8)
                 if args.random_crop:
-                    image = tf.random_crop(image, [args.image_size, args.image_size, 3])
+                    if args.data_dir.split('/')[-2] == 'MsCeleb1M':
+                        image = tf.image.resize_image_with_crop_or_pad(image, args.image_size, args.image_size)
+                    else:
+                        image = tf.random_crop(image, [args.image_size, args.image_size, 3])
                 else:
                     image = tf.image.resize_image_with_crop_or_pad(image, args.image_size, args.image_size)
                 if args.random_flip:
@@ -143,6 +149,7 @@ def main(args):
             shapes=[(args.image_size, args.image_size, 3), ()], enqueue_many=True,
             capacity=4 * nrof_preprocess_threads * args.batch_size,
             allow_smaller_final_batch=True)
+        tf.summary.image('images', image_batch)
         image_batch = tf.identity(image_batch, 'image_batch')
         image_batch = tf.identity(image_batch, 'input')
         label_batch = tf.identity(label_batch, 'label_batch')
@@ -159,7 +166,7 @@ def main(args):
         logits = slim.fully_connected(prelogits, len(train_set), activation_fn=None, 
                 weights_initializer=tf.truncated_normal_initializer(stddev=0.1), 
                 weights_regularizer=slim.l2_regularizer(args.weight_decay),
-                scope='Logits', reuse=False)
+                scope='Logitss', reuse=False)
 
         embeddings = tf.nn.l2_normalize(prelogits, 1, 1e-10, name='embeddings')
 
@@ -193,8 +200,15 @@ def main(args):
         summary_op = tf.summary.merge_all()
 
         # Start running operations on the Graph.
+        #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=args.gpu_memory_fraction)
+        #sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
+        #qxr
+        os.environ['CUDA_VISIBLE_DEVICES'] = '3'
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=args.gpu_memory_fraction)
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
+        tfconfig = tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)
+        #tfconfig.gpu_options.allow_growth = True
+        sess = tf.Session(config=tfconfig)
+        
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         summary_writer = tf.summary.FileWriter(log_dir, sess.graph)
@@ -205,7 +219,13 @@ def main(args):
 
             if pretrained_model:
                 print('Restoring pretrained model: %s' % pretrained_model)
-                saver.restore(sess, pretrained_model)
+                pretrained_var_dic = get_variables_in_checkpoint_file(pretrained_model)
+                #print('pretrained_var_dic: ', pretrained_var_dic)
+                variables_to_restore = get_variables_to_restore(tf.global_variables(), pretrained_var_dic)
+                resaver = tf.train.Saver(variables_to_restore)
+                
+                resaver.restore(sess, pretrained_model)
+                print('Loaded.')
 
             # Training and validation loop
             print('Running training')
@@ -226,7 +246,28 @@ def main(args):
                     evaluate(sess, enqueue_op, image_paths_placeholder, labels_placeholder, phase_train_placeholder, batch_size_placeholder, 
                         embeddings, label_batch, lfw_paths, actual_issame, args.lfw_batch_size, args.lfw_nrof_folds, log_dir, step, summary_writer)
     return model_dir
-  
+
+def get_variables_in_checkpoint_file(file_name):
+    try:
+        reader = pywrap_tensorflow.NewCheckpointReader(file_name)
+        var_to_shape_map = reader.get_variable_to_shape_map()
+        return var_to_shape_map 
+    except Exception as e:  # pylint: disable=broad-except
+        print(str(e))
+        if "corrupted compressed block contents" in str(e):
+            print("It's likely that your checkpoint file has been compressed "
+                  "with SNAPPY.")
+            
+def get_variables_to_restore(variables, var_keep_dic):
+    variables_to_restore = []
+    for v in variables:
+        if v.name.split(':')[0] in var_keep_dic:
+            print('Varibles restored: %s' % v.name)
+            variables_to_restore.append(v)
+
+    return variables_to_restore
+
+        
 def find_threshold(var, percentile):
     hist, bin_edges = np.histogram(var, 100)
     cdf = np.float32(np.cumsum(hist)) / np.sum(hist)
@@ -365,20 +406,20 @@ def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--logs_base_dir', type=str, 
-        help='Directory where to write event logs.', default='~/logs/facenet')
+        help='Directory where to write event logs.', default='~/project/facenet/logs/facenet')
     parser.add_argument('--models_base_dir', type=str,
-        help='Directory where to write trained models and checkpoints.', default='~/models/facenet')
+        help='Directory where to write trained models and checkpoints.', default='~/project/facenet/models/facenet')
     parser.add_argument('--gpu_memory_fraction', type=float,
-        help='Upper bound on the amount of GPU memory that will be used by the process.', default=1.0)
+        help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.95)
     parser.add_argument('--pretrained_model', type=str,
         help='Load a pretrained model before training starts.')
     parser.add_argument('--data_dir', type=str,
         help='Path to the data directory containing aligned face patches. Multiple directories are separated with colon.',
-        default='~/datasets/casia/casia_maxpy_mtcnnalign_182_160')
+        default='/home/qinxiaoran/project/facenet/data/CASIA-Webface/CASIA-WebFace-MTCNNcrop_182')
     parser.add_argument('--model_def', type=str,
-        help='Model definition. Points to a module containing the definition of the inference graph.', default='models.inception_resnet_v1')
+        help='Model definition. Points to a module containing the definition of the inference graph.', default='models.inception_resnet_v2')
     parser.add_argument('--max_nrof_epochs', type=int,
-        help='Number of epochs to run.', default=500)
+        help='Number of epochs to run.', default=80)
     parser.add_argument('--batch_size', type=int,
         help='Number of images to process in a batch.', default=90)
     parser.add_argument('--image_size', type=int,
@@ -395,18 +436,18 @@ def parse_arguments(argv):
     parser.add_argument('--random_rotate', 
         help='Performs random rotations of training images.', action='store_true')
     parser.add_argument('--keep_probability', type=float,
-        help='Keep probability of dropout for the fully connected layer(s).', default=1.0)
+        help='Keep probability of dropout for the fully connected layer(s).', default=0.8)
     parser.add_argument('--weight_decay', type=float,
-        help='L2 weight regularization.', default=0.0)
+        help='L2 weight regularization.', default=0.00005)
     parser.add_argument('--center_loss_factor', type=float,
-        help='Center loss factor.', default=0.0)
+        help='Center loss factor.', default=0.01)
     parser.add_argument('--center_loss_alfa', type=float,
-        help='Center update rate for center loss.', default=0.95)
+        help='Center update rate for center loss.', default=0.9)
     parser.add_argument('--optimizer', type=str, choices=['ADAGRAD', 'ADADELTA', 'ADAM', 'RMSPROP', 'MOM'],
         help='The optimization algorithm to use', default='ADAGRAD')
     parser.add_argument('--learning_rate', type=float,
         help='Initial learning rate. If set to a negative value a learning rate ' +
-        'schedule can be specified in the file "learning_rate_schedule.txt"', default=0.1)
+        'schedule can be specified in the file "learning_rate_schedule.txt"', default=-1)
     parser.add_argument('--learning_rate_decay_epochs', type=int,
         help='Number of epochs between learning rate decay.', default=100)
     parser.add_argument('--learning_rate_decay_factor', type=float,
@@ -420,7 +461,7 @@ def parse_arguments(argv):
     parser.add_argument('--log_histograms', 
         help='Enables logging of weight/bias histograms in tensorboard.', action='store_true')
     parser.add_argument('--learning_rate_schedule_file', type=str,
-        help='File containing the learning rate schedule that is used when learning_rate is set to to -1.', default='data/learning_rate_schedule.txt')
+        help='File containing the learning rate schedule that is used when learning_rate is set to to -1.', default='data/learning_rate_schedule_classifier_casia.txt')
     parser.add_argument('--filter_filename', type=str,
         help='File containing image data used for dataset filtering', default='')
     parser.add_argument('--filter_percentile', type=float,
@@ -432,9 +473,9 @@ def parse_arguments(argv):
     parser.add_argument('--lfw_pairs', type=str,
         help='The file containing the pairs to use for validation.', default='data/pairs.txt')
     parser.add_argument('--lfw_file_ext', type=str,
-        help='The file extension for the LFW dataset.', default='png', choices=['jpg', 'png'])
+        help='The file extension for the LFW dataset.', default='jpg', choices=['jpg', 'png'])
     parser.add_argument('--lfw_dir', type=str,
-        help='Path to the data directory containing aligned face patches.', default='')
+        help='Path to the data directory containing aligned face patches.', default='/home/qinxiaoran/project/facenet/data/lfw/lfw-MTCNNcrop_160/')
     parser.add_argument('--lfw_batch_size', type=int,
         help='Number of images to process in a batch in the LFW test set.', default=100)
     parser.add_argument('--lfw_nrof_folds', type=int,

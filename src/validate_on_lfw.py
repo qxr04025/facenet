@@ -44,8 +44,10 @@ from scipy import interpolate
 def main(args):
   
     with tf.Graph().as_default():
-      
-        with tf.Session() as sess:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
+        tfconfig = tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)
+        with tf.Session(config=tfconfig) as sess:
             
             # Read the file containing the pairs used for testing
             pairs = lfw.read_pairs(os.path.expanduser(args.lfw_pairs))
@@ -93,8 +95,8 @@ def main(args):
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('lfw_dir', type=str,
-        help='Path to the data directory containing aligned LFW face patches.')
+    parser.add_argument('--lfw_dir', type=str,
+        help='Path to the data directory containing aligned LFW face patches.', default='/home/qinxiaoran/project/facenet/data/lfw/lfw-deep-MTCNNcrop/')
     parser.add_argument('--lfw_batch_size', type=int,
         help='Number of images to process in a batch in the LFW test set.', default=100)
     parser.add_argument('model', type=str, 
@@ -104,7 +106,7 @@ def parse_arguments(argv):
     parser.add_argument('--lfw_pairs', type=str,
         help='The file containing the pairs to use for validation.', default='data/pairs.txt')
     parser.add_argument('--lfw_file_ext', type=str,
-        help='The file extension for the LFW dataset.', default='png', choices=['jpg', 'png'])
+        help='The file extension for the LFW dataset.', default='jpg', choices=['jpg', 'png'])
     parser.add_argument('--lfw_nrof_folds', type=int,
         help='Number of folds to use for cross validation. Mainly used for testing.', default=10)
     return parser.parse_args(argv)

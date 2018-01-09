@@ -33,28 +33,30 @@
 % image_size = 160 + 12;
 % margin = round(image_size*0.2) + 12;
 
-source_path = '/home/david/datasets/casia/CASIA-maxpy-clean/';
-target_path = '/home/david/datasets/casia/casia_maxpy_mtcnnalign_182_160';
-failed_images_list = '/home/david/datasets/casia/casia_maxpy_mtcnnalign_182_160/failed_images.txt';
-image_size = 160 + 12;
-margin = round(image_size*0.2) + 12;
+source_path = '/home/qxr/dataset/CASIA-Webface/CASIA-WebFace';
+target_path = '/home/qxr/dataset/CASIA-Webface/CASIA-WebFace-MTCNNcrop_182';
+failed_images_list = '/home/qxr/dataset/CASIA-Webface/MTCNNcrop_182_failed_images.txt';
+image_size = 182;
+margin = 44;
+%image_size = 160 + 12;
+%margin = round(image_size*0.2) + 12;
 
-image_extension = 'png';
+image_extension = 'jpg';
 minsize=20; %minimum size of face
-use_new = 0;
+use_new = 1;
 
-caffe_path='/home/david/repo2/caffe/matlab';
-pdollar_toolbox_path='/home/david/repo2/toolbox';
+caffe_path='/home/qxr/program/caffe-face/matlab';
+pdollar_toolbox_path='/home/qxr/program/toolbox';
 if use_new
-    caffe_model_path='/home/david/repo2/MTCNN_face_detection_alignment/code/codes/MTCNNv2/model';
+    caffe_model_path='./MTCNNv2/model';
 else
-    caffe_model_path='/home/david/repo2/MTCNN_face_detection_alignment/code/codes/MTCNNv1/model';
+    caffe_model_path='./MTCNNv2/model';
 end;
 addpath(genpath(caffe_path));
 addpath(genpath(pdollar_toolbox_path));
 
 caffe.set_mode_gpu();
-caffe.set_device(0);
+caffe.set_device(1);
 
 %three steps's threshold
 threshold=[0.6 0.7 0.7];
