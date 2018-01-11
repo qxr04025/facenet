@@ -123,7 +123,7 @@ def main(args):
             shapes=[(args.image_size, args.image_size, 3), ()], enqueue_many=True,
             capacity=4 * nrof_preprocess_threads * args.batch_size,
             allow_smaller_final_batch=True)
-        tf.summary.image('images', image_batch)
+        #tf.summary.image('images', image_batch)
         image_batch = tf.identity(image_batch, 'image_batch')
         image_batch = tf.identity(image_batch, 'input')
         labels_batch = tf.identity(labels_batch, 'label_batch')
@@ -281,8 +281,9 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
             start_time = time.time()
             batch_size = min(nrof_examples-i*args.batch_size, args.batch_size)
             feed_dict = {batch_size_placeholder: batch_size, learning_rate_placeholder: lr, phase_train_placeholder: True}
-            err, _, step, emb, lab, summary_str = sess.run([loss, train_op, global_step, embeddings, labels_batch, summary_op], feed_dict=feed_dict)
-            summary_writer.add_summary(summary_str, global_step=step)
+            err, _, step, emb, lab = sess.run([loss, train_op, global_step, embeddings, labels_batch], feed_dict=feed_dict)
+            #err, _, step, emb, lab, summary_str = sess.run([loss, train_op, global_step, embeddings, labels_batch, summary_op], feed_dict=feed_dict)
+            #summary_writer.add_summary(summary_str, global_step=step)
             emb_array[lab,:] = emb
             loss_array[i] = err
             duration = time.time() - start_time
