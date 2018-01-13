@@ -97,6 +97,7 @@ ENV/
 # dataset
 data/CASIA-Webface
 data/lfw
+data/comic_characters
 
 # models
 data/imagenet_models_tf
