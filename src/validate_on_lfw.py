@@ -44,7 +44,7 @@ from scipy import interpolate
 def main(args):
   
     with tf.Graph().as_default():
-        os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '2'
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
         tfconfig = tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)
         with tf.Session(config=tfconfig) as sess:
@@ -96,7 +96,7 @@ def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--lfw_dir', type=str,
-        help='Path to the data directory containing aligned LFW face patches.', default='/home/qinxiaoran/project/facenet/data/lfw/lfw-deep-MTCNNcrop/')
+        help='Path to the data directory containing aligned LFW face patches.', default='/home/qinxiaoran/project/facenet/data/lfw/lfw-MTCNNcrop_160/')
     parser.add_argument('--lfw_batch_size', type=int,
         help='Number of images to process in a batch in the LFW test set.', default=100)
     parser.add_argument('model', type=str, 
