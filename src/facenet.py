@@ -39,6 +39,7 @@ from tensorflow.python.training import training
 import random
 import re
 from tensorflow.python.platform import gfile
+from six import iteritems
 
 def triplet_loss(anchor, positive, negative, alpha):
     """Calculate the triplet loss according to the FaceNet paper
@@ -338,6 +339,7 @@ def get_dataset(paths, has_class_directories=True):
   
     return dataset
 
+
 def get_image_paths(facedir):
     image_paths = []
     if os.path.isdir(facedir):
@@ -397,6 +399,11 @@ def get_model_filenames(model_dir):
     elif len(meta_files)>1:
         raise ValueError('There should not be more than one meta file in the model directory (%s)' % model_dir)
     meta_file = meta_files[0]
+    ckpt = tf.train.get_checkpoint_state(model_dir)
+    if ckpt and ckpt.model_checkpoint_path:
+        ckpt_file = os.path.basename(ckpt.model_checkpoint_path)
+        return meta_file, ckpt_file
+
     meta_files = [s for s in files if '.ckpt' in s]
     max_step = -1
     for f in files:
@@ -497,21 +504,29 @@ def calculate_val_far(threshold, dist, actual_issame):
     return val, far
 
 def store_revision_info(src_path, output_dir, arg_string):
+    try:
+        # Get git hash
+        cmd = ['git', 'rev-parse', 'HEAD']
+        gitproc = Popen(cmd, stdout = PIPE, cwd=src_path)
+        (stdout, _) = gitproc.communicate()
+        git_hash = stdout.strip()
+    except OSError as e:
+        git_hash = ' '.join(cmd) + ': ' +  e.strerror
   
-    # Get git hash
-    gitproc = Popen(['git', 'rev-parse', 'HEAD'], stdout = PIPE, cwd=src_path)
-    (stdout, _) = gitproc.communicate()
-    git_hash = stdout.strip()
-  
-    # Get local changes
-    gitproc = Popen(['git', 'diff', 'HEAD'], stdout = PIPE, cwd=src_path)
-    (stdout, _) = gitproc.communicate()
-    git_diff = stdout.strip()
+    try:
+        # Get local changes
+        cmd = ['git', 'diff', 'HEAD']
+        gitproc = Popen(cmd, stdout = PIPE, cwd=src_path)
+        (stdout, _) = gitproc.communicate()
+        git_diff = stdout.strip()
+    except OSError as e:
+        git_diff = ' '.join(cmd) + ': ' +  e.strerror
     
     # Store a text file in the log directory
     rev_info_filename = os.path.join(output_dir, 'revision_info.txt')
     with open(rev_info_filename, "w") as text_file:
         text_file.write('arguments: %s\n--------------------\n' % arg_string)
+        text_file.write('tensorflow version: %s\n--------------------\n' % tf.__version__)  # @UndefinedVariable
         text_file.write('git hash: %s\n--------------------\n' % git_hash)
         text_file.write('%s' % git_diff)
 
@@ -540,5 +555,5 @@ def put_images_on_grid(images, shape=(16,8)):
 
 def write_arguments_to_file(args, filename):
     with open(filename, 'w') as f:
-        for key, value in vars(args).iteritems():
+        for key, value in iteritems(vars(args)):
             f.write('%s: %s\n' % (key, str(value)))

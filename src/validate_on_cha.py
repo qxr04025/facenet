@@ -45,7 +45,7 @@ from scipy import interpolate
 def main(args):
   
     with tf.Graph().as_default():
-        os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '3'
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
         tfconfig = tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)
         with tf.Session(config=tfconfig) as sess:
@@ -105,7 +105,7 @@ def parse_arguments(argv):
     parser.add_argument('--image_size', type=int,
         help='Image size (height, width) in pixels.', default=160)
     parser.add_argument('--lfw_pairs', type=str,
-        help='The file containing the pairs to use for validation.', default='data/comic_characters/validation2000_pairs.txt')
+        help='The file containing the pairs to use for validation.', default='data/comic_characters/validation500_pairs.txt')
     parser.add_argument('--lfw_file_ext', type=str,
         help='The file extension for the LFW dataset.', default='jpg', choices=['jpg', 'png'])
     parser.add_argument('--lfw_nrof_folds', type=int,

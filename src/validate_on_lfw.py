@@ -44,7 +44,7 @@ from scipy import interpolate
 def main(args):
   
     with tf.Graph().as_default():
-        os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '3'
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
         tfconfig = tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)
         with tf.Session(config=tfconfig) as sess:
